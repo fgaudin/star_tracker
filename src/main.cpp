@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <AccelStepper.h>
+#include <EEPROM.h>
 
 const int dirPin = 2;
 const int stepPin = 3;
@@ -27,6 +28,11 @@ AccelStepper myStepper(motorInterfaceType, stepPin, dirPin);
 void setup()
 {
   Serial.begin(9600);
+
+  EEPROM.get(0, speed);
+  Serial.print("loaded speed: ");
+  Serial.println(speed);
+
   pinMode(releasePin, OUTPUT);
   digitalWrite(releasePin, HIGH);
   pinMode(directionPin, INPUT_PULLUP);
@@ -74,6 +80,9 @@ void loop()
     Serial.println("direction button pressed");
     speed = -speed;
     myStepper.setSpeed(speed);
+    EEPROM.put(0, speed);
+    Serial.print("saved: ");
+    Serial.println(speed);
   }
 
   if (buttonPressed(enablePin))
@@ -111,6 +120,9 @@ void loop()
     }
 
     myStepper.setSpeed(speed);
+    EEPROM.put(0, speed);
+    Serial.print("saved: ");
+    Serial.println(speed);
   }
 
   if (buttonPressed(fasterPin))
@@ -125,6 +137,9 @@ void loop()
       speed = max(speed - speedIncr, -maxSpeed);
     }
     myStepper.setSpeed(speed);
+    EEPROM.put(0, speed);
+    Serial.print("saved: ");
+    Serial.println(speed);
   }
 
   myStepper.runSpeed();
