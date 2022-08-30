@@ -10,6 +10,7 @@ const int directionPin = 5;
 const int enablePin = 6;
 const int slowerPin = 7;
 const int fasterPin = 8;
+const int modePin = 9;
 
 int speed = 200;
 const int maxSpeed = 800;
@@ -17,7 +18,11 @@ const int speedIncr = 10;
 
 int buttonState[] = {LOW, LOW, LOW, LOW};
 int lastButtonState[] = {HIGH, HIGH, HIGH, HIGH};
-unsigned long lastDebounceTime[] = {0, 0, 0, 0};
+unsigned long lastButtonDebounceTime[] = {0, 0, 0, 0};
+
+int lastSwitchState = HIGH;
+unsigned long lastModeDebounceTime = 0;
+char trackingMode = '\0';
 
 unsigned long debounceDelay = 50;
 
@@ -25,13 +30,58 @@ unsigned long debounceDelay = 50;
 
 AccelStepper myStepper(motorInterfaceType, stepPin, dirPin);
 
+int modeAddress()
+{
+  if (trackingMode == 'm')
+  {
+    return sizeof(speed);
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+void checkMode()
+{
+  int value = digitalRead(modePin);
+
+  if (value != lastSwitchState)
+  {
+    lastModeDebounceTime = millis();
+  }
+
+  if ((millis() - lastModeDebounceTime) > debounceDelay)
+  {
+    bool reloadSpeed = false;
+    if (value && trackingMode != 'm')
+    {
+      trackingMode = 'm'; // moon
+      reloadSpeed = true;
+    }
+    else if (!value && trackingMode != 's')
+    {
+      trackingMode = 's'; // star
+      reloadSpeed = true;
+    }
+
+    if (reloadSpeed)
+    {
+      Serial.print("mode: ");
+      Serial.println(trackingMode);
+      EEPROM.get(modeAddress(), speed);
+      myStepper.setSpeed(speed);
+      Serial.print("speed: ");
+      Serial.println(speed);
+    }
+  }
+
+  lastSwitchState = value;
+}
+
 void setup()
 {
   Serial.begin(9600);
-
-  EEPROM.get(0, speed);
-  Serial.print("loaded speed: ");
-  Serial.println(speed);
 
   pinMode(releasePin, OUTPUT);
   digitalWrite(releasePin, HIGH);
@@ -39,8 +89,10 @@ void setup()
   pinMode(enablePin, INPUT_PULLUP);
   pinMode(slowerPin, INPUT_PULLUP);
   pinMode(fasterPin, INPUT_PULLUP);
+  pinMode(modePin, INPUT_PULLUP);
   myStepper.setMaxSpeed(maxSpeed);
-  myStepper.setSpeed(0);
+
+  checkMode();
 }
 
 boolean buttonPressed(int pin)
@@ -52,10 +104,10 @@ boolean buttonPressed(int pin)
 
   if (value != lastButtonState[idx])
   {
-    lastDebounceTime[idx] = millis();
+    lastButtonDebounceTime[idx] = millis();
   }
 
-  if ((millis() - lastDebounceTime[idx]) > debounceDelay)
+  if ((millis() - lastButtonDebounceTime[idx]) > debounceDelay)
   {
     if (value != buttonState[idx])
     {
@@ -75,12 +127,14 @@ boolean buttonPressed(int pin)
 
 void loop()
 {
+  checkMode();
+
   if (buttonPressed(directionPin))
   {
     Serial.println("direction button pressed");
     speed = -speed;
     myStepper.setSpeed(speed);
-    EEPROM.put(0, speed);
+    EEPROM.put(modeAddress(), speed);
     Serial.print("saved: ");
     Serial.println(speed);
   }
@@ -88,10 +142,9 @@ void loop()
   if (buttonPressed(enablePin))
   {
     Serial.println("enable button pressed");
-    if (myStepper.speed() != 0.0)
+    if (!digitalRead(releasePin))
     {
       Serial.println("motor running: stopping");
-      myStepper.setSpeed(0);
       myStepper.disableOutputs();
       digitalWrite(releasePin, HIGH);
     }
@@ -120,7 +173,7 @@ void loop()
     }
 
     myStepper.setSpeed(speed);
-    EEPROM.put(0, speed);
+    EEPROM.put(modeAddress(), speed);
     Serial.print("saved: ");
     Serial.println(speed);
   }
@@ -137,7 +190,7 @@ void loop()
       speed = max(speed - speedIncr, -maxSpeed);
     }
     myStepper.setSpeed(speed);
-    EEPROM.put(0, speed);
+    EEPROM.put(modeAddress(), speed);
     Serial.print("saved: ");
     Serial.println(speed);
   }
