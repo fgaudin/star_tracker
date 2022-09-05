@@ -6,15 +6,17 @@ const int dirPin = 2;
 const int stepPin = 3;
 const int releasePin = 4;
 
-const int directionPin = 5;
-const int enablePin = 6;
-const int slowerPin = 7;
-const int fasterPin = 8;
+const int slowerPin = 5;
+const int directionPin = 6;
+const int enablePin = 8;
+const int fasterPin = 7;
 const int modePin = 9;
+
+const int firstButton = 5;
 
 int speed = 200;
 const int maxSpeed = 800;
-const int speedIncr = 10;
+const int speedIncr = 1;
 
 int buttonState[] = {LOW, LOW, LOW, LOW};
 int lastButtonState[] = {HIGH, HIGH, HIGH, HIGH};
@@ -97,7 +99,7 @@ void setup()
 
 boolean buttonPressed(int pin)
 {
-  const int idx = pin - directionPin;
+  const int idx = pin - firstButton;
 
   int value = digitalRead(pin);
   bool pressed = false;
